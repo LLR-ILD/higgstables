@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from make_data import save_data
+from higgstables.make_data import save_data
 
 rootfile_help = (
     "The basic file with simulated events. "
@@ -8,7 +8,8 @@ rootfile_help = (
     "https://github.com/LLR-ILD/Higgs-BR-classes"
 )
 
-if __name__ == "__main__":
+
+def main():
     try:
         default_csv_dir = Path(__file__).parents[2] / "data"
     except IndexError:
@@ -26,3 +27,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     save_data(args.rootfile, args.data_dir)
+
+
+if __name__ == "__main__":
+    main()

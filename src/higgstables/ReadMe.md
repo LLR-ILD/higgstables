@@ -23,10 +23,13 @@ The event categories are defined in [./make_data](./make_data).
 
 As the rootfile is not tracked by the `iminuit-BRs` repository (this repository), it is not possible to change the analysis without having access to the rootfile from an external source.
 
-It is adviced to re-run `new_data.py` after each change, to keep documentation and data in sync.
+It is adviced to re-run `higgstables` after each change, to keep documentation and data in sync.
 
 ## Usage example
 
 ```bash
-python3 helper/get_data/new_data.py ../Higgs-BR-classes/data/v05/simple_event_vector_njets_997k.root
+# If the package/CLI is not already installed.
+python3 -m pip install higgstables
+# Run the program
+higgstables ../Higgs-BR-classes/data/v05/simple_event_vector_njets_997k.root
 ```
