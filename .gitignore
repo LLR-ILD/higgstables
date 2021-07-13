@@ -1,0 +1,8 @@
+*.py[co]
+__pycache__
+*.egg-info
+*.eggs
+
+# pytest
+.pytest_cache
+htmlcov
