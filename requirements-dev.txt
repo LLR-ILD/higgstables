@@ -7,4 +7,4 @@ pandas
 pre-commit
 pytest
 scikit-learn
-uproot>=1.0
+uproot>=4.0

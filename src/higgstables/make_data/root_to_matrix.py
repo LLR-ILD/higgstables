@@ -44,7 +44,7 @@ def data_to_matrix(matrix_data):
 
 
 def get_train_test_matrices(rootfile_path):
-    df = uproot.open(rootfile_path)["simple_event_vector"].pandas.df()
+    df = uproot.open(rootfile_path)["simple_event_vector"].arrays(library="pd")
     matrix_data = pd.DataFrame()
     matrix_data["data_class"] = add_categorical(df, categories=categories)
     matrix_data["BR"] = pd.Categorical(
