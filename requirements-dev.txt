@@ -1,0 +1,10 @@
+
+black
+flake8
+numexpr
+numpy
+pandas
+pre-commit
+pytest
+scikit-learn
+uproot>=1.0

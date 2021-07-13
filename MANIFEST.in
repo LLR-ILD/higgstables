@@ -1,0 +1,6 @@
+
+prune *
+graft src
+include LICENCE README.MD pyproject.toml setup.py setup.cfg
+
+global-exclude __pycache__ *.py[cod] .*
