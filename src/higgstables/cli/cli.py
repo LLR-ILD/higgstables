@@ -1,12 +1,11 @@
+"""The higgstables command line interface."""
 from pathlib import Path
 
-from higgstables.make_data import save_data
+import higgstables
 
-rootfile_help = (
-    "The basic file with simulated events. "
-    "Produced through `make_event_vector` in the Higgs-BR-classes project: "
-    "https://github.com/LLR-ILD/Higgs-BR-classes"
-)
+from ..make_data import save_data
+
+rootfile_help = "The basic file with simulated events."
 
 
 def main():
@@ -17,7 +16,13 @@ def main():
         default_csv_dir = Path("data")
     import argparse
 
-    parser = argparse.ArgumentParser(description="Replace the data.")
+    parser = argparse.ArgumentParser(
+        description=higgstables.__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "-v", "--version", action="version", version=higgstables._version_info
+    )
     parser.add_argument("rootfile", help=rootfile_help)
     parser.add_argument(
         "--data_dir",

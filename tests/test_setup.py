@@ -40,3 +40,9 @@ def test_requirements_dev():
         sorted(set(setup_imports)), sorted(set(dev_imports))
     ):
         assert setup_import == dev_import
+
+
+def test_module_level_docstring():
+    import higgstables
+
+    assert higgstables.__doc__, "This is used for the CLI as description."
