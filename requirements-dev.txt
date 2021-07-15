@@ -7,5 +7,4 @@ pandas
 pre-commit
 pytest
 pyyaml
-scikit-learn
 uproot>=4.0

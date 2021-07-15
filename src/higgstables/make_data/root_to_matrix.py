@@ -2,7 +2,6 @@ import numexpr
 import numpy as np
 import pandas as pd
 import uproot
-from sklearn.model_selection import train_test_split
 
 from .categories import categories
 
@@ -43,7 +42,7 @@ def data_to_matrix(matrix_data):
     return br_to_classes
 
 
-def get_train_test_matrices(rootfile_path):
+def get_matrix(rootfile_path):
     df = uproot.open(rootfile_path)["simple_event_vector"].arrays(library="pd")
     matrix_data = pd.DataFrame()
     matrix_data["data_class"] = add_categorical(df, categories=categories)
@@ -52,8 +51,5 @@ def get_train_test_matrices(rootfile_path):
         ordered=True,
         categories=sorted(higgs_decay_id.values()),
     ).rename_categories(higgs_decay_name)
-    train_df, test_df = train_test_split(
-        matrix_data, test_size=0.5, random_state=42, stratify=matrix_data["BR"]
-    )
-    train_m, test_m = data_to_matrix(train_df), data_to_matrix(test_df)
-    return train_m, test_m
+    matrix = data_to_matrix(matrix_data)
+    return matrix
