@@ -5,6 +5,7 @@ from pathlib import Path
 
 import higgstables
 
+from ..config.load_config import ConfigFromArgs
 from ..make_data import save_data
 
 
@@ -61,7 +62,7 @@ def main():
     parser.add_argument(
         "-v", "--version", action="version", version=higgstables._version_info
     )
-    parser.add_argument("rootfile", help=rootfile_help)
+    parser.add_argument("data_source", help=rootfile_help)
     parser.add_argument(
         "-d",
         "--data_dir",
@@ -69,11 +70,23 @@ def main():
         help="Folder to store tables into.",
         default="data",
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        help=(
+            "Path to a local configuration file. "
+            f"Explicitely set it to `{ConfigFromArgs._default_config_tag}` "
+            "to use the default configuration file."
+        ),
+        default=ConfigFromArgs._default_config_cli,
+    )
     prepare_cli_logging(parser)
     args = parser.parse_args()
 
     set_cli_logging(args)
-    save_data(args.rootfile, args.data_dir)
+    config = ConfigFromArgs(args).get_config()
+    print(config)
+    save_data(args.data_source, args.data_dir)
 
 
 if __name__ == "__main__":
