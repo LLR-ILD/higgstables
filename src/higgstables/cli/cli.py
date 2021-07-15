@@ -12,7 +12,7 @@ from ..make_data import save_data
 def prepare_cli_logging(parser):
     parser.add_argument(
         "--debug",
-        help="Debugging level logging",
+        help="Debugging level logging.",
         action="store_const",
         dest="loglevel",
         const=logging.DEBUG,
@@ -34,9 +34,6 @@ def set_cli_logging(args):
 
     logger.debug(higgstables._version_info)
     logger.debug(f"Arguments as interpreted by the parser: {args=}.")
-
-
-rootfile_help = "The basic file with simulated events."
 
 
 def data_to_dir(data_dir):
@@ -62,7 +59,10 @@ def main():
     parser.add_argument(
         "-v", "--version", action="version", version=higgstables._version_info
     )
-    parser.add_argument("data_source", help=rootfile_help)
+    parser.add_argument(
+        "data_source",
+        help="Rootfile with variables from simulated events, or folder thereof.",
+    )
     parser.add_argument(
         "-d",
         "--data_dir",
