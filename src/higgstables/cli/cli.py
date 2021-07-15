@@ -6,7 +6,7 @@ from pathlib import Path
 import higgstables
 
 from ..config.load_config import ConfigFromArgs
-from ..make_data import save_data
+from ..file_to_rows import save_data
 
 
 def prepare_cli_logging(parser):

@@ -17,7 +17,8 @@ Decide on an _event-vector_ rootfile as the basis for the data.
 ### Change the analysis
 
 The analysis can be changed from within this repository.
-The event categories are defined in [./make_data](./make_data).
+The event categories and other parameters are set through a configuration file.
+Find the default/example file at [./config/higgstables-config.yaml](./config/higgstables-config.yaml).
 
 ### _Warning_
 
