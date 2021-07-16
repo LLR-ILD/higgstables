@@ -1,7 +1,8 @@
+import itertools
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, DefaultDict, Dict
+from typing import DefaultDict, Dict, List, Set
 
 import numexpr
 import numpy as np
@@ -13,17 +14,25 @@ from ..config import Config, Trigger
 logger = logging.getLogger(__name__)
 
 
+def _get_process_name(path: Path) -> str:
+    return path.absolute().parent.name
+
+
 class FileToCounts:
+    """From a single rootfile, extract the counts per category."""
+
     def __init__(
         self,
         rootfile_path: Path,
         config: Config,
     ) -> None:
         self._rootfile_path = rootfile_path
-        self._rootfile = uproot.open(self._rootfile_path)
         self._config = config
+
+        self._rootfile = uproot.open(self._rootfile_path)
+        self.name = _get_process_name(self._rootfile_path)
         self._loaded_arrays: DefaultDict = defaultdict(dict)
-        self.row_cells: Dict[str, Any] = {"process": self._rootfile_path.parent.name}
+        self.row_cells: Dict[str, int] = {}
 
         self.row_cells["n_not_selected"] = self.run_triggers()
         self.keep_mask = self.run_preselections()
@@ -98,4 +107,68 @@ class FileToCounts:
         return local_arrays
 
     def as_series(self) -> pd.Series:
-        return pd.Series(self.row_cells)
+        return pd.Series(self.row_cells, name=self.name)
+
+
+class TablesFromFiles:
+    """Handles the combination of files into a consitent table."""
+
+    def __init__(
+        self,
+        data_source: Path,
+        data_dir: Path,
+        config: Config,
+    ) -> None:
+        self._data_source = data_source
+        self._data_dir = data_dir
+        self._config = config
+
+        self.build_tables()
+
+    def build_tables(self) -> None:
+        table_files = self._find_files()
+        for name, files in table_files.items():
+            df = self.build_table(sorted(list(files)))
+            df.to_csv(self._data_dir / f"{name}.csv")
+
+    def build_table(self, files: List[Path]) -> pd.DataFrame:
+        process_columns = self._get_counts(files)
+        table = process_columns.transpose()
+        return table
+
+    def _get_counts(self, files: List[Path]) -> pd.DataFrame:
+        df = None
+        for file in files:
+            series: pd.Series = FileToCounts(file, self._config).as_series()
+            if df is None:
+                df = series.to_frame()
+            if series.name in df.columns:
+                df[series.name] = df[series.name] + series
+            else:
+                df[series.name] = series
+        return df
+
+    def _find_files(self):
+        """TODO: Ignore some files (e.g. Pe2e2h)."""
+        table_files: Dict[str, Set[Path]] = {}
+        if self._data_source.is_file():
+            table_files[_get_process_name(self._data_source)] = {self._data_source}
+
+        elif self._data_source.is_dir():
+            for table_name, search_pattern in self._config.tables.items():
+                in_this_table = set(self._data_source.glob(search_pattern))
+                if len(in_this_table) == 0:
+                    logger.warning(f"No file matches the pattern {search_pattern}.")
+                table_files[table_name] = in_this_table
+        else:
+            raise NotImplementedError(self._data_source)
+
+        # Plausibility checks-
+        all_considered_files = set(itertools.chain(*table_files.values()))
+        n_files = len(all_considered_files)
+        if n_files == 0:
+            logger.error("No file was found for any table.")
+        elif n_files != sum(len(v) for v in table_files.values()):
+            logger.warning("Some files contribute to more than one table.")
+
+        return table_files

@@ -6,6 +6,11 @@
 # are combined per logical_and.
 #
 higgstables:
+  tables:
+    eLpL: "eLpL/*/simple_event_vector.root"
+    eLpR: "eLpR/*/simple_event_vector.root"
+    eRpL: "eRpL/*/simple_event_vector.root"
+    eRpR: "eRpR/*/simple_event_vector.root"
   anchors:
     # Collect here (or anywhere else) anchors (&var) for future aliasing (*var).
     &no_iso "(n_iso_leptons == 0) & (n_iso_photons == 0)"

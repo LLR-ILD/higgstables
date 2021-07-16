@@ -32,7 +32,7 @@ class Config:
             config_dict = _load_config_dict(None)
 
         conf = CheckFields(
-            required={"categories", "categories-tree"},
+            required={"categories", "categories-tree", "tables"},
             optional={
                 "anchors",
                 "categories-out-of-tree-variables",
@@ -52,6 +52,8 @@ class Config:
             conf.get("preselections", None),
             only_preselections=True,
         )
+
+        self.tables = conf["tables"]
 
     @property
     def categories(self) -> Dict[str, str]:

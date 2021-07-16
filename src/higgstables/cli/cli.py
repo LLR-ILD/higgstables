@@ -6,7 +6,7 @@ from pathlib import Path
 import higgstables
 
 from ..config import ConfigFromArgs
-from ..file_to_rows import save_data
+from ..file_to_rows.root_to_matrix import TablesFromFiles
 
 
 def prepare_cli_logging(parser):
@@ -39,7 +39,7 @@ def set_cli_logging(args):
     # Do some first logging.
     logger = logging.getLogger(__name__)
     logger.warning(f"Rootfiles taken from {args.data_dir.absolute()}.")
-    logger.debug(higgstables._version_info)
+    logger.info(higgstables._version_info)
     logger.debug(f"Arguments as interpreted by the parser: {args=}.")
 
 
@@ -93,7 +93,7 @@ def main():
 
     set_cli_logging(args)
     config = ConfigFromArgs(args).get_config()
-    save_data(args, config)
+    TablesFromFiles(args.data_source, args.data_dir, config)
 
 
 if __name__ == "__main__":
