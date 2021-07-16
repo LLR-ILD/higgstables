@@ -30,8 +30,15 @@ def prepare_cli_logging(parser):
 def set_cli_logging(args):
     FORMAT = "[%(levelname)s:%(name)s] %(message)s"
     logging.basicConfig(format=FORMAT, level=args.loglevel)
-    logger = logging.getLogger(__name__)
 
+    # Additionally log to a logfile at the same level.
+    file_handler = logging.FileHandler(args.data_dir / "higgstables.log")
+    file_handler.setFormatter(fmt=logging.Formatter(fmt=FORMAT))
+    logging.getLogger().addHandler(file_handler)  # Added to the root logger.
+
+    # Do some first logging.
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Rootfiles taken from {args.data_dir.absolute()}.")
     logger.debug(higgstables._version_info)
     logger.debug(f"Arguments as interpreted by the parser: {args=}.")
 
