@@ -36,6 +36,7 @@ class Config:
             optional={
                 "anchors",
                 "categories-out-of-tree-variables",
+                "ignored-processes",
                 "triggers",
                 "preselections",
             },
@@ -54,6 +55,7 @@ class Config:
         )
 
         self.tables = conf["tables"]
+        self.ignored_processes: List["str"] = conf.get("ignored-processes", [])
 
     @property
     def categories(self) -> Dict[str, str]:

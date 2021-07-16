@@ -157,6 +157,7 @@ class TablesFromFiles:
         elif self._data_source.is_dir():
             for table_name, search_pattern in self._config.tables.items():
                 in_this_table = set(self._data_source.glob(search_pattern))
+                in_this_table = self._apply_ignoring(in_this_table)
                 if len(in_this_table) == 0:
                     logger.warning(f"No file matches the pattern {search_pattern}.")
                 table_files[table_name] = in_this_table
@@ -172,3 +173,12 @@ class TablesFromFiles:
             logger.warning("Some files contribute to more than one table.")
 
         return table_files
+
+    def _apply_ignoring(self, path_set: Set[Path]) -> Set[Path]:
+        ignored_processes = self._config.ignored_processes
+        ignored_paths = [
+            path for path in path_set if _get_process_name(path) in ignored_processes
+        ]
+        for ignored_path in ignored_paths:
+            path_set.remove(ignored_path)
+        return path_set

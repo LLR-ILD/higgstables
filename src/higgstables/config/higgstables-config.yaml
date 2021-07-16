@@ -11,6 +11,7 @@ higgstables:
     eLpR: "eLpR/*/simple_event_vector.root"
     eRpL: "eRpL/*/simple_event_vector.root"
     eRpR: "eRpR/*/simple_event_vector.root"
+  ignored-processes: [Pe2e2h, Pe1e1h]  # Avoid duplication with the pre-decay files.
   anchors:
     # Collect here (or anywhere else) anchors (&var) for future aliasing (*var).
     &no_iso "(n_iso_leptons == 0) & (n_iso_photons == 0)"
