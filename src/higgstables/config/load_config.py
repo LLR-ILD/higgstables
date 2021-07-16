@@ -56,6 +56,19 @@ class Config:
 
         self.tables = conf["tables"]
         self.ignored_processes: List["str"] = conf.get("ignored-processes", [])
+        self._validate_parameters()
+
+    def _validate_parameters(self) -> None:
+        try:
+            out_of_tree = self.categories_out_of_tree_variables
+            assert type(out_of_tree) == dict
+            assert all(type(v) == str for v in out_of_tree.values())
+            assert type(self.tables) == dict
+            assert all(type(e) == str for e in self.tables.values())
+            assert type(self.ignored_processes) == list
+            assert all(type(e) == str for e in self.ignored_processes)
+        except AssertionError:
+            raise InvalidConfigurationError
 
     @property
     def categories(self) -> Dict[str, str]:
