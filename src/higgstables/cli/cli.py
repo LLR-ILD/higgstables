@@ -5,7 +5,7 @@ from pathlib import Path
 
 import higgstables
 
-from ..config.load_config import ConfigFromArgs
+from ..config import ConfigFromArgs
 from ..file_to_rows import save_data
 
 
@@ -61,6 +61,7 @@ def main():
     )
     parser.add_argument(
         "data_source",
+        type=Path,
         help="Rootfile with variables from simulated events, or folder thereof.",
     )
     parser.add_argument(
@@ -85,8 +86,7 @@ def main():
 
     set_cli_logging(args)
     config = ConfigFromArgs(args).get_config()
-    print(config)
-    save_data(args.data_source, args.data_dir)
+    save_data(args, config)
 
 
 if __name__ == "__main__":

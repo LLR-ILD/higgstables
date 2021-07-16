@@ -1,11 +1,8 @@
 import pytest
 
-from higgstables.config.load_config import (
-    Config,
-    InvalidConfigurationError,
-    _default_yaml_path,
-    load_config,
-)
+from higgstables.config import Config, _default_yaml_path
+from higgstables.config.load_config import load_config
+from higgstables.config.util import InvalidConfigurationError
 
 
 def test_default_config_found():

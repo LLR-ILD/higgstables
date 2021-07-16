@@ -3,24 +3,19 @@ import argparse
 import logging
 import shutil
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import numexpr.necompiler as nec
 import yaml
 
+from .triggers import Trigger, Triggers
+from .util import (
+    CheckFields,
+    ConfigFileNotFoundError,
+    InvalidConfigurationError,
+    get_variables_from_expression,
+)
+
 logger = logging.getLogger(__name__)
-
-
-class ConfigFileNotFoundError(FileNotFoundError):
-    """No configuration file could be found."""
-
-    pass
-
-
-class InvalidConfigurationError(Exception):
-    """The specified configuration is not valid."""
-
-    pass
 
 
 class Config:
@@ -36,14 +31,27 @@ class Config:
         if config_dict is None:
             config_dict = _load_config_dict(None)
 
-        top_level_key = "higgstables"
-        try:
-            conf = config_dict[top_level_key]
-        except KeyError:
-            raise InvalidConfigurationError(
-                f"{top_level_key} must be a top level key in the configuration."
-            )
+        conf = CheckFields(
+            required={"categories", "categories-tree"},
+            optional={
+                "anchors",
+                "categories-out-of-tree-variables",
+                "triggers",
+                "preselections",
+            },
+        ).by_name("higgstables", config_dict)
+
         self.categories = conf["categories"]
+        self.categories_tree = conf["categories-tree"]
+        self.categories_out_of_tree_variables = conf.get(
+            "categories-out-of-tree-variables", {}
+        )
+
+        self.triggers = Triggers(conf.get("triggers", None))
+        self.preselections = Triggers(
+            conf.get("preselections", None),
+            only_preselections=True,
+        )
 
     @property
     def categories(self) -> Dict[str, str]:
@@ -69,20 +77,11 @@ class Config:
         return self._category_variables
 
     @staticmethod
-    def _getvariables_from_expression(expression: str) -> Iterator[str]:
-        # https://stackoverflow.com/questions/58585735/numexpr-how-to-get-variables-inside-expression
-        return map(
-            lambda x: x.value,
-            nec.typeCompileAst(
-                nec.expressionToAST(nec.stringToExpression(expression, {}, {}))
-            ).allOf("variable"),
-        )
-
-    def _get_category_variables(self, categories: Dict[str, str]) -> Set[str]:
+    def _get_category_variables(categories: Dict[str, str]) -> Set[str]:
         all_variables: Set[str] = set()
         for key, expression in categories.items():
             try:
-                variables = self._getvariables_from_expression(expression)
+                variables = get_variables_from_expression(expression)
             except SyntaxError:
                 raise InvalidConfigurationError(
                     f"Category {key} has an invalid syntax."
@@ -90,6 +89,17 @@ class Config:
             all_variables.update(variables)
         logger.info(f"The variables used for category building are: {all_variables}")
         return all_variables
+
+    def categories_wrapped_as_triggers(self) -> Iterable[Tuple[str, Trigger]]:
+        for key, condition in self.categories.items():
+            yield key, Trigger(
+                {
+                    "condition": condition,
+                    "type": Trigger._default_type,
+                    "tree": self.categories_tree,
+                    "out-of-tree-variables": self.categories_out_of_tree_variables,
+                }
+            )
 
 
 _yaml_name = "higgstables-config.yaml"
@@ -133,6 +143,8 @@ def load_config(yaml_path: Union[Path, str, None] = None) -> "Config":
 
 
 class ConfigFromArgs:
+    """Load the configuration when using the command line interface."""
+
     _default_config_cli = "in local folder"
     _default_config_tag = "default"
 
@@ -159,8 +171,3 @@ class ConfigFromArgs:
         shutil.copy(valid_config_path, self.data_destination)
         config = load_config(valid_config_path)
         return config
-
-
-if __name__ == "__main__":
-    config = load_config()
-    print(config.category_variables)

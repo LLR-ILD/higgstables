@@ -7,8 +7,25 @@
 #
 higgstables:
   anchors:
-    # Collect here (or anywhere else) anchors (&var) for futur aliasing (*var).
+    # Collect here (or anywhere else) anchors (&var) for future aliasing (*var).
     &no_iso "(n_iso_leptons == 0) & (n_iso_photons == 0)"
+  triggers:  # Events that did not make it to the categories tree.
+    - tree: preselection_passed_
+      type: histogram
+      condition: [0]  # For histogram: which bins to keep.
+    - tree: z_variables
+      condition:  # Same syntax as for categories.
+      - abs(m_z - 91.19) < 5
+      - m_recoil < 130
+      - m_recoil > 123
+  preselections:  # Events in the categories-tree that should not be used.
+    - tree: z_variables
+      # out-of-tree-variables: {n_charged_hadrons: simple_event_vector}
+      condition:  # Same syntax as for categories.
+      - abs(m_z - 91.19) < 5
+      - m_recoil < 130
+      - m_recoil > 123
+  categories-tree: simple_event_vector
   categories:
     cc:
     - *no_iso
