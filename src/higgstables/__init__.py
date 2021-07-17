@@ -8,7 +8,6 @@ Further information:
 """
 import logging
 
-from .loading.simple import load_data
 from .version import __version__
 
 _version_info = f"{__name__} version {__version__} at {__file__[:-len('/__init__.py')]}"
@@ -16,6 +15,5 @@ logger = logging.getLogger(__name__)
 logger.debug(_version_info)
 
 __all__ = [
-    "load_data",
     "__version__",
 ]
