@@ -2,12 +2,14 @@ import itertools
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Dict, List, Set
+from typing import DefaultDict, Dict, List, Set, Tuple
 
 import numexpr
 import numpy as np
 import pandas as pd
+import tqdm
 import uproot
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from ..config import Config, Trigger
 
@@ -126,10 +128,14 @@ class TablesFromFiles:
         self.build_tables()
 
     def build_tables(self) -> None:
-        table_files = self._find_files()
-        for name, files in table_files.items():
-            df = self.build_table(sorted(list(files)), name)
-            df.to_csv(self._data_dir / f"{name}.csv")
+        n_files, table_files = self._find_files()
+        with logging_redirect_tqdm():
+            self._per_file_bar = tqdm.tqdm(total=n_files)
+            for name, files in table_files.items():
+                self._per_file_bar.set_description(f"Building table {name}")
+                df = self.build_table(sorted(list(files)), name)
+                df.to_csv(self._data_dir / f"{name}.csv")
+            self._per_file_bar.close()
 
     def build_table(self, files: List[Path], name: str) -> pd.DataFrame:
         process_columns = self._get_counts(files)
@@ -164,9 +170,10 @@ class TablesFromFiles:
                 df[series.name] = df[series.name] + series
             else:
                 df[series.name] = series
+            self._per_file_bar.update(1)
         return df
 
-    def _find_files(self):
+    def _find_files(self) -> Tuple[int, Dict[str, Set[Path]]]:
         table_files: Dict[str, Set[Path]] = {}
         if self._data_source.is_file():
             table_files[_get_process_name(self._data_source)] = {self._data_source}
@@ -189,7 +196,7 @@ class TablesFromFiles:
         elif n_files != sum(len(v) for v in table_files.values()):
             logger.warning("Some files contribute to more than one table.")
 
-        return table_files
+        return n_files, table_files
 
     def _apply_ignoring(self, path_set: Set[Path]) -> Set[Path]:
         ignored_processes = self._config.ignored_processes

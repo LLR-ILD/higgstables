@@ -1,6 +1,7 @@
 """The higgstables command line interface."""
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 import higgstables
@@ -41,6 +42,7 @@ def set_cli_logging(args):
     logger.warning(f"Rootfiles taken from {args.data_dir.absolute()}.")
     logger.info(higgstables._version_info)
     logger.debug(f"Arguments as interpreted by the parser: {args=}.")
+    logger.debug(f"Python executable used: {sys.executable}.")
 
 
 def data_to_dir(data_dir):

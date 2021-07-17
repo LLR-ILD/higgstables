@@ -7,4 +7,5 @@ pandas
 pre-commit
 pytest
 pyyaml
+tqdm
 uproot>=4.0
