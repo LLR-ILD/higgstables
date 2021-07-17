@@ -36,12 +36,10 @@ class FileToCounts:
         self._loaded_arrays: DefaultDict = defaultdict(dict)
         self.row_cells: Dict[str, int] = {}
 
-        self.row_cells["n_not_selected"] = self.run_triggers()
+        self.row_cells["unselected"] = self.run_triggers()
         self.keep_mask = self.run_preselections()
         n_not_preselected = self.keep_mask.shape[0] - np.sum(self.keep_mask)
-        self.row_cells["n_not_selected"] = (
-            self.row_cells["n_not_selected"] + n_not_preselected
-        )
+        self.row_cells["unselected"] = self.row_cells["unselected"] + n_not_preselected
         self.fill_categories()
 
     def run_triggers(self) -> int:
@@ -142,7 +140,7 @@ class TablesFromFiles:
         table = process_columns.transpose()
         if not self._config.no_cs:
             cs = self._get_cross_sections(name, table.index)
-            table.insert(0, "cs [fb]", cs)
+            table.insert(0, "cross section [fb]", cs)
         return table
 
     def _get_cross_sections(self, name: str, processes: pd.Index) -> pd.Series:
