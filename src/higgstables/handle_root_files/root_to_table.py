@@ -1,3 +1,4 @@
+"""The working horse: Gets counts out of rootfiles into the .csv tables."""
 import itertools
 import logging
 from collections import defaultdict

@@ -1,3 +1,4 @@
+""""Smaller code snippets useful within the config handling code."""
 from typing import Dict, Iterable, Iterator, Optional
 
 import numexpr.necompiler as nec
@@ -59,6 +60,7 @@ class CheckFields:
 
 
 def get_variables_from_expression(expression: str) -> Iterator[str]:
+    """Get the names of all variables found in the expression (through numexpr)."""
     # https://stackoverflow.com/questions/58585735/numexpr-how-to-get-variables-inside-expression
     return map(
         lambda x: x.value,

@@ -7,7 +7,7 @@ from pathlib import Path
 import higgstables
 
 from ..config import ConfigFromArgs
-from ..file_to_rows.root_to_matrix import TablesFromFiles
+from ..handle_root_files import TablesFromFiles
 
 
 def prepare_cli_logging(parser):
@@ -39,13 +39,14 @@ def set_cli_logging(args):
 
     # Do some first logging.
     logger = logging.getLogger(__name__)
+    logger.warning(higgstables._version_info)
     logger.warning(f"Rootfiles taken from {args.data_dir.absolute()}.")
-    logger.info(higgstables._version_info)
     logger.debug(f"Arguments as interpreted by the parser: {args=}.")
     logger.debug(f"Python executable used: {sys.executable}.")
 
 
 def data_to_dir(data_dir):
+    """Ensures that the procided data destination is valid."""
     data_dir = Path(data_dir)
     if data_dir.is_dir():
         is_empty = not any(data_dir.iterdir())

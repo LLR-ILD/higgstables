@@ -8,6 +8,9 @@ Further information:
 """
 import logging
 
+from .config import Config
+from .handle_root_files import FileToCounts, TablesFromFiles
+from .ild_specific import CrossSections
 from .version import __version__
 
 _version_info = f"{__name__} version {__version__} at {__file__[:-len('/__init__.py')]}"
@@ -15,5 +18,9 @@ logger = logging.getLogger(__name__)
 logger.debug(_version_info)
 
 __all__ = [
+    "Config",
+    "CrossSections",
+    "FileToCounts",
+    "TablesFromFiles",
     "__version__",
 ]
