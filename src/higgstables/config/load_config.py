@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import yaml
 
+from ..ild_specific import CrossSectionException, CrossSections
 from .triggers import Trigger, Triggers
 from .util import (
     CheckFields,
@@ -26,13 +27,14 @@ class Config:
     should raise `InvalidConfigurationError`.
     """
 
-    def __init__(self, config_dict: Optional[Dict] = None) -> None:
+    def __init__(self, config_dict: Optional[Dict] = None, no_cs: bool = False) -> None:
         """Configuration loading through a dictionary (of a specific schema)."""
+        self.no_cs = no_cs
         if config_dict is None:
             config_dict = _load_config_dict(None)
 
         conf = CheckFields(
-            required={"categories", "categories-tree", "tables"},
+            required={"categories", "categories-tree", "machine", "tables"},
             optional={
                 "anchors",
                 "categories-out-of-tree-variables",
@@ -56,6 +58,15 @@ class Config:
 
         self.tables = conf["tables"]
         self.ignored_processes: List["str"] = conf.get("ignored-processes", [])
+        if not self.no_cs:
+            try:
+                self.cross_sections = CrossSections(conf["machine"])
+            except CrossSectionException as e:
+                logger.error(
+                    f'The cross sections for {conf["machine"]} could not be read. '
+                    "To run without the cross sections column, specify `no_cs`."
+                )
+                raise e
         self._validate_parameters()
 
     def _validate_parameters(self) -> None:
@@ -150,13 +161,15 @@ def _load_config_dict(yaml_path: Union[Path, str, None]) -> Dict:
     return config_dict
 
 
-def load_config(yaml_path: Union[Path, str, None] = None) -> "Config":
+def load_config(
+    yaml_path: Union[Path, str, None] = None, no_cs: bool = False
+) -> "Config":
     """Configuration loading through a file name.
 
     >>> default_config = load_config()
     >>> my_config = load_config("path/to/config.yaml")
     """
-    return Config(_load_config_dict(yaml_path))
+    return Config(_load_config_dict(yaml_path), no_cs)
 
 
 class ConfigFromArgs:
@@ -169,6 +182,7 @@ class ConfigFromArgs:
         self.config_path = args.config
         self.data_source = args.data_source
         self.data_destination = args.data_dir
+        self.no_cs = args.no_cs
 
     def get_config(self) -> Config:
         """Return a Config object."""

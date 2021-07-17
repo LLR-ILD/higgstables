@@ -88,6 +88,12 @@ def main():
         ),
         default=ConfigFromArgs._default_config_cli,
     )
+    parser.add_argument(
+        "--no_cs",
+        dest="no_cs",
+        action="store_true",
+        help="Toggle to not build the cross sections column.",
+    )
     prepare_cli_logging(parser)
     args = parser.parse_args()
 

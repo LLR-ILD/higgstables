@@ -128,13 +128,31 @@ class TablesFromFiles:
     def build_tables(self) -> None:
         table_files = self._find_files()
         for name, files in table_files.items():
-            df = self.build_table(sorted(list(files)))
+            df = self.build_table(sorted(list(files)), name)
             df.to_csv(self._data_dir / f"{name}.csv")
 
-    def build_table(self, files: List[Path]) -> pd.DataFrame:
+    def build_table(self, files: List[Path], name: str) -> pd.DataFrame:
         process_columns = self._get_counts(files)
         table = process_columns.transpose()
+        if not self._config.no_cs:
+            cs = self._get_cross_sections(name, table.index)
+            table.insert(0, "cs [fb]", cs)
         return table
+
+    def _get_cross_sections(self, name: str, processes: pd.Index) -> pd.Series:
+        cross_sections = self._config.cross_sections.per_polarization()
+        if name not in cross_sections:
+            logger.warning(
+                f"The table name {name} was not understood "
+                f"as a valid polarization {tuple(cross_sections.keys())}. "
+                "All cross sections are set to infinity."
+            )
+            return pd.Series(float("inf"), index=processes)
+        cs_polarized = cross_sections[name]
+        cs_dict = {
+            process: cs_polarized.get(process, float("inf")) for process in processes
+        }
+        return pd.Series(cs_dict)
 
     def _get_counts(self, files: List[Path]) -> pd.DataFrame:
         df = None
@@ -149,7 +167,6 @@ class TablesFromFiles:
         return df
 
     def _find_files(self):
-        """TODO: Ignore some files (e.g. Pe2e2h)."""
         table_files: Dict[str, Set[Path]] = {}
         if self._data_source.is_file():
             table_files[_get_process_name(self._data_source)] = {self._data_source}

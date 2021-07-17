@@ -47,6 +47,7 @@ class CrossSections:
 
     machine_dir = Path(__file__).parent / ".machines"
     meta_json = "genmetaByFile.json"
+    get_polarization_weights = get_polarization_weights
 
     def __init__(self, machine: str) -> None:
         """Get process cross sections for an ILC machine scenario."""
