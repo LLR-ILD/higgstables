@@ -3,7 +3,7 @@ import itertools
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Dict, List, Set, Tuple
+from typing import DefaultDict, Dict, List, Optional, Set, Tuple
 
 import numexpr
 import numpy as np
@@ -15,7 +15,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 from ..config import Config, Trigger
 
 logger = logging.getLogger(__name__)
-
+KeepMaskType = Optional["np.ndarray[np.bool_]"]
 
 def _get_process_name(path: Path) -> str:
     return path.absolute().parent.name
@@ -37,11 +37,10 @@ class FileToCounts:
         self._loaded_arrays: DefaultDict = defaultdict(dict)
         self.row_cells: Dict[str, int] = {}
 
-        self.row_cells["unselected"] = self.run_triggers()
-        self.keep_mask = self.run_preselections()
-        n_not_preselected = self.keep_mask.shape[0] - np.sum(self.keep_mask)
-        self.row_cells["unselected"] = self.row_cells["unselected"] + n_not_preselected
-        self.fill_categories()
+        n_not_triggered = self.run_triggers()
+        n_not_preselected, keep_mask = self.run_preselections()
+        self.row_cells["unselected"] = n_not_triggered + n_not_preselected
+        self.fill_categories(keep_mask)
 
     def run_triggers(self) -> int:
         n_not_selected = 0
@@ -59,32 +58,26 @@ class FileToCounts:
                 raise NotImplementedError(trigger.type)
         return n_not_selected
 
-    def run_preselections(self) -> "np.ndarray[np.bool_]":
+    def run_preselections(self) -> Tuple[int, KeepMaskType]:
         keep_mask = None
         for preselection in self._config.preselections:
             keep_mask_step = self._get_condition_mask(preselection)
             if keep_mask is None:
                 keep_mask = keep_mask_step
-            else:
-                keep_mask = keep_mask & keep_mask_step
-        return keep_mask
-
-    def fill_categories(self) -> None:
-        if self.keep_mask is None:
-            old_n_events_without_category = 0
+            keep_mask = keep_mask & keep_mask_step
+        if keep_mask is not None:
+            n_not_preselected = keep_mask.shape[0] - np.sum(keep_mask)
         else:
-            old_n_events_without_category = np.sum(self.keep_mask)
+            n_not_preselected = 0
+        return n_not_preselected, keep_mask
+
+    def fill_categories(self, keep_mask: KeepMaskType=None) -> None:
         for name, selection in self._config.categories_wrapped_as_triggers():
             is_in_category = self._get_condition_mask(selection)
-            if self.keep_mask is None:
-                self.keep_mask = is_in_category
-            else:
-                self.keep_mask = self.keep_mask & np.logical_not(is_in_category)
-            n_events_without_category = np.sum(self.keep_mask)
-            self.row_cells[name] = (
-                old_n_events_without_category - n_events_without_category
-            )
-            old_n_events_without_category = n_events_without_category
+            if keep_mask is None:
+                keep_mask = np.ones_like(is_in_category, dtype=bool)
+            self.row_cells[name] = np.sum(keep_mask & is_in_category)
+            keep_mask = keep_mask & np.logical_not(is_in_category)
 
     def _get_condition_mask(self, selector: Trigger) -> "np.ndarray[np.bool_]":
         local_arrays = self._get_array_dict(selector)
