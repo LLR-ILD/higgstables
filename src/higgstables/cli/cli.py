@@ -40,7 +40,7 @@ def set_cli_logging(args):
     # Do some first logging.
     logger = logging.getLogger(__name__)
     logger.warning(higgstables._version_info)
-    logger.warning(f"Rootfiles taken from {args.data_dir.absolute()}.")
+    logger.warning(f"Rootfiles taken from {args.data_source.absolute()}.")
     logger.debug(f"Arguments as interpreted by the parser: {args=}.")
     logger.debug(f"Python executable used: {sys.executable}.")
 
