@@ -17,11 +17,12 @@ from ..config import Config, Trigger
 logger = logging.getLogger(__name__)
 KeepMaskType = Optional["np.ndarray[np.bool_]"]
 
+
 def _get_process_name(path: Path) -> str:
     return path.absolute().parent.name
 
 
-class FileToCounts:
+class FileToSelected:
     """From a single rootfile, extract the counts per category."""
 
     def __init__(
@@ -38,9 +39,24 @@ class FileToCounts:
         self.row_cells: Dict[str, int] = {}
 
         n_not_triggered = self.run_triggers()
-        n_not_preselected, keep_mask = self.run_preselections()
+        n_not_preselected, self._keep_mask = self.run_preselections()
         self.row_cells["unselected"] = n_not_triggered + n_not_preselected
-        self.fill_categories(keep_mask)
+
+    def _get_array_dict(self, selector: Trigger) -> Dict["str", np.ndarray]:
+        local_arrays = {}
+        for var in selector.variables:
+            var_tree = selector.out_of_tree_variables.get(var, selector.tree)
+            if var not in self._loaded_arrays[var_tree]:
+                try:
+                    array = self._rootfile[var_tree][var].array(library="np")
+                except KeyError as e:
+                    logger.error(
+                        f"{var} not found in {var_tree} of {self._rootfile_path}"
+                    )
+                    raise e
+                self._loaded_arrays[var_tree][var] = array
+            local_arrays[var] = self._loaded_arrays[var_tree][var]
+        return local_arrays
 
     def run_triggers(self) -> int:
         n_not_selected = 0
@@ -71,7 +87,24 @@ class FileToCounts:
             n_not_preselected = 0
         return n_not_preselected, keep_mask
 
-    def fill_categories(self, keep_mask: KeepMaskType=None) -> None:
+    def _get_condition_mask(self, selector: Trigger) -> "np.ndarray[np.bool_]":
+        local_arrays = self._get_array_dict(selector)
+        mask = numexpr.evaluate(selector.condition, local_arrays)
+        return mask
+
+
+class FileToCounts(FileToSelected):
+    """From a single rootfile, extract the counts per category."""
+
+    def __init__(
+        self,
+        rootfile_path: Path,
+        config: Config,
+    ) -> None:
+        super().__init__(rootfile_path, config)
+        self.fill_categories(self._keep_mask)
+
+    def fill_categories(self, keep_mask: KeepMaskType = None) -> None:
         for name, selection in self._config.categories_wrapped_as_triggers():
             is_in_category = self._get_condition_mask(selection)
             if keep_mask is None:
@@ -79,69 +112,48 @@ class FileToCounts:
             self.row_cells[name] = np.sum(keep_mask & is_in_category)
             keep_mask = keep_mask & np.logical_not(is_in_category)
 
-    def _get_condition_mask(self, selector: Trigger) -> "np.ndarray[np.bool_]":
-        local_arrays = self._get_array_dict(selector)
-        mask = numexpr.evaluate(selector.condition, local_arrays)
-        return mask
-
-    def _get_array_dict(self, selector: Trigger) -> Dict["str", np.ndarray]:
-        local_arrays = {}
-        for var in selector.variables:
-            var_tree = selector.out_of_tree_variables.get(var, selector.tree)
-            if var not in self._loaded_arrays[var_tree]:
-                try:
-                    array = self._rootfile[var_tree][var].array(library="np")
-                except KeyError as e:
-                    logger.error(
-                        f"{var} not found in {var_tree} of {self._rootfile_path}"
-                    )
-                    raise e
-                self._loaded_arrays[var_tree][var] = array
-            local_arrays[var] = self._loaded_arrays[var_tree][var]
-        return local_arrays
-
     def as_series(self) -> pd.Series:
         return pd.Series(self.row_cells, name=self.name)
 
 
-class TablesFromFiles:
-    """Handles the combination of files into a consitent table."""
+class DataFromFiles:
+    """Handles the combination of files into a consistent table."""
 
     def __init__(
         self,
         data_source: Path,
         data_dir: Path,
         config: Config,
+        obj_type: str = "table",
     ) -> None:
         self._data_source = data_source
         self._data_dir = data_dir
         self._config = config
+        self._obj_type = obj_type
 
-        self.build_tables()
+        self.build_objects()
 
-    def build_tables(self) -> None:
+    def build_objects(self) -> None:
         n_files, table_files = self._find_files()
         with logging_redirect_tqdm():
             self._per_file_bar = tqdm.tqdm(total=n_files)
             for name, files in table_files.items():
-                self._per_file_bar.set_description(f"Building table {name}")
-                df = self.build_table(sorted(list(files)), name)
-                df.to_csv(self._data_dir / f"{name}.csv")
+                self._per_file_bar.set_description(f"Building {self._obj_type} {name}")
+                df = self.build_obj(sorted(list(files)), name)
+                self._save(df, name)
             self._per_file_bar.close()
 
-    def build_table(self, files: List[Path], name: str) -> pd.DataFrame:
-        process_columns = self._get_counts(files)
-        table = process_columns.transpose()
-        if not self._config.no_cs:
-            cs = self._get_cross_sections(name, table.index)
-            table.insert(0, "cross section [fb]", cs)
-        return table
+    def _save(self, df: pd.DataFrame, name: str) -> None:
+        raise NotImplementedError
+
+    def build_obj(self, files: List[Path], name: str) -> pd.DataFrame:
+        raise NotImplementedError
 
     def _get_cross_sections(self, name: str, processes: pd.Index) -> pd.Series:
         cross_sections = self._config.cross_sections.per_polarization()
         if name not in cross_sections:
             logger.warning(
-                f"The table name {name} was not understood "
+                f"The {self._obj_type} name {name} was not understood "
                 f"as a valid polarization {tuple(cross_sections.keys())}. "
                 "All cross sections are set to infinity."
             )
@@ -151,19 +163,6 @@ class TablesFromFiles:
             process: cs_polarized.get(process, float("inf")) for process in processes
         }
         return pd.Series(cs_dict)
-
-    def _get_counts(self, files: List[Path]) -> pd.DataFrame:
-        df = None
-        for file in files:
-            series: pd.Series = FileToCounts(file, self._config).as_series()
-            if df is None:
-                df = series.to_frame()
-            if series.name in df.columns:
-                df[series.name] = df[series.name] + series
-            else:
-                df[series.name] = series
-            self._per_file_bar.update(1)
-        return df
 
     def _find_files(self) -> Tuple[int, Dict[str, Set[Path]]]:
         table_files: Dict[str, Set[Path]] = {}
@@ -184,9 +183,9 @@ class TablesFromFiles:
         all_considered_files = set(itertools.chain(*table_files.values()))
         n_files = len(all_considered_files)
         if n_files == 0:
-            logger.error("No file was found for any table.")
+            logger.error(f"No file was found for any {self._obj_type}.")
         elif n_files != sum(len(v) for v in table_files.values()):
-            logger.warning("Some files contribute to more than one table.")
+            logger.warning(f"Some files contribute to more than one {self._obj_type}.")
 
         return n_files, table_files
 
@@ -198,3 +197,39 @@ class TablesFromFiles:
         for ignored_path in ignored_paths:
             path_set.remove(ignored_path)
         return path_set
+
+
+class TablesFromFiles(DataFromFiles):
+    """Handles the combination of files into a consistent table."""
+
+    def __init__(
+        self,
+        data_source: Path,
+        data_dir: Path,
+        config: Config,
+    ) -> None:
+        super().__init__(data_source, data_dir, config, obj_type="table")
+
+    def _save(self, df: pd.DataFrame, name: str):
+        df.to_csv(self._data_dir / f"{name}.csv")
+
+    def build_obj(self, files: List[Path], name: str) -> pd.DataFrame:
+        process_columns = self._get_counts(files)
+        table = process_columns.transpose()
+        if not self._config.no_cs:
+            cs = self._get_cross_sections(name, table.index)
+            table.insert(0, "cross section [fb]", cs)
+        return table
+
+    def _get_counts(self, files: List[Path]) -> pd.DataFrame:
+        df = None
+        for file in files:
+            series: pd.Series = FileToCounts(file, self._config).as_series()
+            if df is None:
+                df = series.to_frame()
+            if series.name in df.columns:
+                df[series.name] = df[series.name] + series
+            else:
+                df[series.name] = series
+            self._per_file_bar.update(1)
+        return df
