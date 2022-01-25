@@ -7,7 +7,7 @@ from pathlib import Path
 import higgstables
 
 from ..config import ConfigFromArgs
-from ..handle_root_files import TablesFromFiles
+from ..handle_root_files import DfFromFiles, TablesFromFiles
 
 
 def prepare_cli_logging(parser):
@@ -61,7 +61,7 @@ def data_to_dir(data_dir):
     return data_dir
 
 
-def main():
+def main(TablesFromFiles=TablesFromFiles):
     parser = argparse.ArgumentParser(
         description=higgstables.__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -103,6 +103,10 @@ def main():
     set_cli_logging(args)
     config = ConfigFromArgs(args).get_config()
     TablesFromFiles(args.data_source, args.data_dir, config)
+
+
+def make_selected_event_dfs_instead_of_count_tables():
+    main(TablesFromFiles=DfFromFiles)
 
 
 if __name__ == "__main__":

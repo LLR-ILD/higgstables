@@ -38,6 +38,7 @@ class Config:
             optional={
                 "anchors",
                 "categories-out-of-tree-variables",
+                "df",
                 "ignored-processes",
                 "triggers",
                 "preselections",
@@ -49,6 +50,9 @@ class Config:
         self.categories_out_of_tree_variables = conf.get(
             "categories-out-of-tree-variables", {}
         )
+        self.df = conf.get("df", {})
+        assert type(self.df) == dict
+        self.df_n_max = int(self.df.pop("n_max", -1))
 
         self.triggers = Triggers(conf.get("triggers", None))
         self.preselections = Triggers(
@@ -78,6 +82,13 @@ class Config:
             assert all(type(e) == str for e in self.tables.values())
             assert type(self.ignored_processes) == list
             assert all(type(e) == str for e in self.ignored_processes)
+            assert type(self.df_n_max) == int
+            assert self.df_n_max >= -1
+            assert type(self.df) == dict
+            assert all(
+                v is None or all(type(v_i) == str for v_i in v)
+                for v in self.df.values()
+            )
         except AssertionError:
             raise InvalidConfigurationError
 
@@ -155,7 +166,7 @@ def _select_yaml_path(yaml_path: Union[Path, str, None]) -> Path:
 def _load_config_dict(yaml_path: Union[Path, str, None]) -> Dict:
     """Reads the yaml content from an appropriate path or raises an error."""
     yaml_path = _select_yaml_path(yaml_path)
-    logger.debug(f"{yaml_path} is used as configuration file.")
+    logger.debug(f"{yaml_path.absolute()} is used as configuration file.")
     with yaml_path.open("r") as f:
         config_dict = yaml.safe_load(f)
     return config_dict
