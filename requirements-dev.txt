@@ -5,6 +5,7 @@ numexpr
 numpy
 pandas
 pre-commit
+pyarrow
 pytest
 pyyaml
 tqdm

@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import pandas as pd
 import yaml
 
 from ..ild_specific import CrossSectionException, CrossSections
@@ -38,6 +39,7 @@ class Config:
             optional={
                 "anchors",
                 "categories-out-of-tree-variables",
+                "format",
                 "df",
                 "ignored-processes",
                 "triggers",
@@ -60,6 +62,8 @@ class Config:
             only_preselections=True,
         )
 
+        self._format = conf.get("format", "csv")
+        self.save_df(pd.DataFrame(), Path(), "dummy_name", validate_only=True)
         self.tables = conf["tables"]
         self.ignored_processes: List["str"] = conf.get("ignored-processes", [])
         if not self.no_cs:
@@ -139,6 +143,21 @@ class Config:
                     "out-of-tree-variables": self.categories_out_of_tree_variables,
                 }
             )
+
+    def save_df(
+        self, df: pd.DataFrame, folder: Path, name: str, validate_only: bool = False
+    ):
+        _save_options = {
+            "csv": lambda df: df.to_csv(folder / f"{name}.csv"),
+            "parquet": lambda df: df.to_parquet(folder / f"{name}.parquet"),
+            "pickle": lambda df: df.to_pickle(folder / f"{name}.pkl"),
+        }
+        if self._format not in _save_options:
+            raise InvalidConfigurationError(
+                f"{self._format} not in {_save_options.keys()}."
+            )
+        if not validate_only:
+            _save_options[self._format](df)
 
 
 _yaml_name = "higgstables-config.yaml"

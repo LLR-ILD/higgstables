@@ -226,11 +226,8 @@ class DataFromFiles:
             for name, files in table_files.items():
                 self._per_file_bar.set_description(f"Building {self._obj_type} {name}")
                 df = self.build_obj(sorted(list(files)), name)
-                self._save(df, name)
+                self._config.save_df(df, self._data_dir, name)
             self._per_file_bar.close()
-
-    def _save(self, df: pd.DataFrame, name: str) -> None:
-        raise NotImplementedError
 
     def build_obj(self, files: List[Path], name: str) -> pd.DataFrame:
         raise NotImplementedError
@@ -296,9 +293,6 @@ class TablesFromFiles(DataFromFiles):
     ) -> None:
         super().__init__(data_source, data_dir, config, obj_type="table")
 
-    def _save(self, df: pd.DataFrame, name: str):
-        df.to_csv(self._data_dir / f"{name}.csv")
-
     def build_obj(self, files: List[Path], name: str) -> pd.DataFrame:
         process_columns = self._get_counts(files)
         table = process_columns.transpose()
@@ -338,9 +332,6 @@ class DfFromFiles(DataFromFiles):
             self._n_max = n_max
         self._vars_per_tree = _validate_vars_per_tree(vars_per_tree, config)
         super().__init__(data_source, data_dir, config, obj_type="df")
-
-    def _save(self, df: pd.DataFrame, name: str):
-        df.to_pickle(self._data_dir / f"{name}.pkl")
 
     def build_obj(self, files: List[Path], name: str) -> pd.DataFrame:
         dfs = []
