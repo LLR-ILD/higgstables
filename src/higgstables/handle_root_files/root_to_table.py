@@ -4,7 +4,7 @@ import logging
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Dict, List, Optional, Set, Tuple
+from typing import DefaultDict, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 import numexpr
 import numpy as np
@@ -28,14 +28,24 @@ class FileToSelected:
 
     def __init__(
         self,
-        rootfile_path: Path,
+        rootfile_path: Union[Path, pd.DataFrame],
         config: Config,
     ) -> None:
         self._rootfile_path = rootfile_path
         self._config = config
 
-        self._rootfile = uproot.open(self._rootfile_path)
-        self.name = _get_process_name(self._rootfile_path)
+        if isinstance(self._rootfile_path, Path):
+            self._rootfile = uproot.open(self._rootfile_path)
+            self.name = _get_process_name(self._rootfile_path)
+        elif isinstance(self._rootfile_path, pd.DataFrame):
+            df = self._rootfile_path
+            processes = df.pop("process")
+            processes = np.unique(processes)
+            assert len(processes) == 1, processes
+            self.name = processes[0]
+        else:
+            raise NotImplementedError(type(self._rootfile_path))
+
         self._loaded_arrays: DefaultDict = defaultdict(dict)
         self.row_cells: Dict[str, int] = {}
 
@@ -46,6 +56,9 @@ class FileToSelected:
     def _get_array_dict(self, selector: Trigger) -> Dict["str", np.ndarray]:
         local_arrays = {}
         for var in selector.variables:
+            if isinstance(self._rootfile_path, pd.DataFrame):
+                local_arrays[var] = self._rootfile_path[var].values
+                continue
             var_tree = selector.out_of_tree_variables.get(var, selector.tree)
             if var not in self._loaded_arrays[var_tree]:
                 try:
@@ -60,6 +73,11 @@ class FileToSelected:
         return local_arrays
 
     def run_triggers(self) -> int:
+        if isinstance(self._rootfile_path, pd.DataFrame):
+            c = self._rootfile_path["efficiency"]
+            assert np.std(c) < 1e-10, f"{np.std(c)}\n{c}"
+            trigger_efficiency = np.mean(c)
+            return int(len(self._rootfile_path) * trigger_efficiency)
         n_not_selected = 0
         for trigger in self._config.triggers:
             if trigger.type == "histogram":
@@ -117,9 +135,11 @@ class FileToCounts(FileToSelected):
         return pd.Series(self.row_cells, name=self.name)
 
 
-def _get_entry_stop(keep_mask: KeepMaskType = None, n_max: int = -1) -> int:
+def _get_entry_stop(
+    keep_mask: KeepMaskType = None, n_max: Optional[int] = None
+) -> Optional[int]:
     entry_stop = n_max
-    if n_max >= 0 and keep_mask is not None:
+    if n_max is not None and n_max >= 0 and keep_mask is not None:
         try:
             entry_stop = np.nonzero(np.cumsum(keep_mask) == n_max)[0][0] + 1
         except IndexError:
@@ -154,7 +174,7 @@ class FileToDf(FileToSelected):
         self,
         rootfile_path: Path,
         config: Config,
-        n_max: int = -1,
+        n_max: Optional[int] = None,
         vars_per_tree: VarsPerTreeType = None,
     ) -> None:
         super().__init__(rootfile_path, config)
@@ -163,18 +183,39 @@ class FileToDf(FileToSelected):
     def fill_df(
         self,
         keep_mask: KeepMaskType = None,
-        n_max: int = -1,
+        n_max: Optional[int] = None,
         vars_per_tree: VarsPerTreeType = None,
     ) -> pd.DataFrame:
         entry_stop = _get_entry_stop(keep_mask, n_max)
-        df_parts = []
-        vars_per_tree = _validate_vars_per_tree(vars_per_tree, self._config)
-        for tree, vars in vars_per_tree.items():
-            df_parts.append(self._get_df_part(tree, vars, entry_stop=entry_stop))
+        if entry_stop is not None and keep_mask is not None:
+            keep_mask = keep_mask[:entry_stop]
+        if isinstance(self._rootfile_path, pd.DataFrame):
+            if vars_per_tree is None or len(set(vars_per_tree) - {"drop"}) > 0:
+                raise NotImplementedError(
+                    f"Using higgstables to build a DataFrame from non-root files.\n"
+                    "You are required to use (only) the `drop` field as a key "
+                    "under `df` (`n_max` is optionally allowed on top). "
+                    f"Found fields: {vars_per_tree}."
+                )
+            drop_columns: Set[str] = set()
+            if vars_per_tree["drop"] is not None:
+                drop_columns = drop_columns.union(vars_per_tree["drop"])
+            df = self._rootfile_path.drop(columns=drop_columns)
             if keep_mask is not None:
-                df_parts[-1] = df_parts[-1][keep_mask[:entry_stop]]
-        df = pd.concat(df_parts, axis="columns")
-        n_selected = np.sum(keep_mask)
+                df = df.iloc[: len(keep_mask)].iloc[keep_mask].copy()
+        else:
+            df_parts = []
+            vars_per_tree = _validate_vars_per_tree(vars_per_tree, self._config)
+            for tree, vars in vars_per_tree.items():
+                df_parts.append(self._get_df_part(tree, vars, entry_stop=entry_stop))
+                if keep_mask is not None:
+                    df_parts[-1] = df_parts[-1][keep_mask]
+            df = pd.concat(df_parts, axis="columns")
+        if keep_mask is None:
+            n_selected = len(df)
+        else:
+            n_selected = np.sum(keep_mask)
+        df = df.drop(columns="efficiency", errors="ignore")
         df.insert(
             0, "efficiency", n_selected / (self.row_cells["unselected"] + n_selected)
         )
@@ -184,7 +225,7 @@ class FileToDf(FileToSelected):
         self,
         var_tree: str,
         vars: Optional[List[str]] = None,
-        entry_stop: int = -1,
+        entry_stop: Optional[int] = -1,
     ) -> pd.DataFrame:
         try:
             with warnings.catch_warnings():
@@ -281,6 +322,17 @@ class DataFromFiles:
             path_set.remove(ignored_path)
         return path_set
 
+    def _rootfile_or_parquet_df(
+        self, files: List[Path]
+    ) -> Iterator[Union[Path, pd.DataFrame]]:
+        for file in files:
+            if file.suffix == ".parquet":
+                df = pd.read_parquet(file)
+                for process in np.unique(df.process):
+                    yield df[df.process == process]
+            else:
+                yield file
+
 
 class TablesFromFiles(DataFromFiles):
     """Handles the combination of files into a consistent table."""
@@ -303,7 +355,7 @@ class TablesFromFiles(DataFromFiles):
 
     def _get_counts(self, files: List[Path]) -> pd.DataFrame:
         df = None
-        for file in files:
+        for file in self._rootfile_or_parquet_df(files):
             series: pd.Series = FileToCounts(file, self._config).as_series()
             if df is None:
                 df = series.to_frame()
@@ -324,9 +376,9 @@ class DfFromFiles(DataFromFiles):
         data_dir: Path,
         config: Config,
         vars_per_tree: VarsPerTreeType = None,
-        n_max: Optional[int] = None,
+        n_max: Union[int, None, bool] = False,
     ) -> None:
-        if n_max is None:
+        if isinstance(n_max, bool) and not n_max:
             self._n_max = config.df_n_max
         else:
             self._n_max = n_max
@@ -335,7 +387,7 @@ class DfFromFiles(DataFromFiles):
 
     def build_obj(self, files: List[Path], name: str) -> pd.DataFrame:
         dfs = []
-        for file in files:
+        for file in self._rootfile_or_parquet_df(files):
             file_df: pd.DataFrame = FileToDf(
                 file, self._config, self._n_max, self._vars_per_tree
             ).as_df()

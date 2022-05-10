@@ -54,7 +54,9 @@ class Config:
         )
         self.df = conf.get("df", {})
         assert type(self.df) == dict
-        self.df_n_max = int(self.df.pop("n_max", -1))
+        self.df_n_max = self.df.pop("n_max", None)
+        if self.df_n_max is not None:
+            self.df_n_max = int(self.df_n_max)
 
         self.triggers = Triggers(conf.get("triggers", None))
         self.preselections = Triggers(
@@ -86,8 +88,9 @@ class Config:
             assert all(type(e) == str for e in self.tables.values())
             assert type(self.ignored_processes) == list
             assert all(type(e) == str for e in self.ignored_processes)
-            assert type(self.df_n_max) == int
-            assert self.df_n_max >= -1
+            if self.df_n_max is not None:
+                assert type(self.df_n_max) == int
+                assert self.df_n_max >= -1
             assert type(self.df) == dict
             assert all(
                 v is None or all(type(v_i) == str for v_i in v)

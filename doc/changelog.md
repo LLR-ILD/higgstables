@@ -1,6 +1,13 @@
 Changelog
 =========
 
+1.2.0 (May 10, 2022)
+-----------------------
+
+Inputs can now be a .parquet files.
+This can be helpful for preprocessing (e.g. applying a machine learning algorithm).
+The standard path is still a glob pattern for .root files.
+
 1.1.0 (January 25, 2022)
 -----------------------
 

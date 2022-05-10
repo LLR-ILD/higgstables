@@ -34,7 +34,7 @@ higgstables:
       - m_recoil < 130
       - m_recoil > 123
   df:
-    n_max: -1  # Optional. Assume -1 if not present.
+    n_max: # Optional. Assume None/empty if not present. Then all entries are used.
     simple_event_vector:
     z_variables:
     - abs(cos_theta_miss)

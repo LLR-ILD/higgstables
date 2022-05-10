@@ -38,7 +38,7 @@ cd higgstables
 # Standard venv creation
 python3 -m venv .venv --prompt $(basename $(pwd))
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 # If you are developping a local package
 python -m pip install -e .
 # Git commit hooks, code pushed to the repo should pass all hooks.
