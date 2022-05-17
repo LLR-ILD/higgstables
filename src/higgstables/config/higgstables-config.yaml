@@ -14,6 +14,7 @@ higgstables:
   ignored-processes: [Pe2e2h, Pe1e1h]  # Avoid duplication with the pre-decay files.
   machine: "E250-SetA"  # For cross section column.
   format: csv  # Optional (default: csv). One of [csv, pickle, parquet]. Especially useful for higgstables-df.
+  cross-section-zero: [Pe2e2h_inv, Pe1e1h_inv]
   anchors:
     # Collect here (or anywhere else) anchors (&var) for future aliasing (*var).
     &no_iso "(n_iso_leptons == 0) & (n_iso_photons == 0)"

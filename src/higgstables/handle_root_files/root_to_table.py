@@ -286,6 +286,8 @@ class DataFromFiles:
         cs_dict = {
             process: cs_polarized.get(process, float("inf")) for process in processes
         }
+        for process in self._config.cross_section_zero:
+            cs_dict[process] = 0
         return pd.Series(cs_dict)
 
     def _find_files(self) -> Tuple[int, Dict[str, Set[Path]]]:

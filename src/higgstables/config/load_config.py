@@ -39,6 +39,7 @@ class Config:
             optional={
                 "anchors",
                 "categories-out-of-tree-variables",
+                "cross-section-zero",
                 "format",
                 "df",
                 "ignored-processes",
@@ -68,6 +69,7 @@ class Config:
         self.save_df(pd.DataFrame(), Path(), "dummy_name", validate_only=True)
         self.tables = conf["tables"]
         self.ignored_processes: List["str"] = conf.get("ignored-processes", [])
+        self.cross_section_zero: List["str"] = conf.get("cross-section-zero", [])
         if not self.no_cs:
             try:
                 self.cross_sections = CrossSections(conf["machine"])
@@ -88,6 +90,8 @@ class Config:
             assert all(type(e) == str for e in self.tables.values())
             assert type(self.ignored_processes) == list
             assert all(type(e) == str for e in self.ignored_processes)
+            assert type(self.cross_section_zero) == list
+            assert all(type(e) == str for e in self.cross_section_zero)
             if self.df_n_max is not None:
                 assert type(self.df_n_max) == int
                 assert self.df_n_max >= -1
