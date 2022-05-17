@@ -77,7 +77,7 @@ class FileToSelected:
             c = self._rootfile_path["efficiency"]
             assert np.std(c) < 1e-10, f"{np.std(c)}\n{c}"
             trigger_efficiency = np.mean(c)
-            return int(len(self._rootfile_path) * trigger_efficiency)
+            return int(len(self._rootfile_path) / trigger_efficiency)
         n_not_selected = 0
         for trigger in self._config.triggers:
             if trigger.type == "histogram":
